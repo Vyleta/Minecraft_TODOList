@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft Ultimate Farm Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#1e3d1f;
+  --bg2:#0f2411;
+  --panel:#2f5a2f;
+  --panel2:#3f7a3f;
+  --accent:#5cff72;
+  --accent2:#7dff95;
+  --danger:#d64545;
+  --border:#000;
+}
+
+body{
+  margin:0;
+  background:linear-gradient(180deg,var(--bg1),var(--bg2));
+  color:white;
+  font-family:'Press Start 2P', monospace;
+  display:flex;
+  justify-content:center;
+  padding:20px;
+}
+
+.container{
+  width:1000px;
+  max-width:100%;
+  background:var(--panel);
+  border:4px solid var(--border);
+  box-shadow:8px 8px 0 #000;
+  padding:25px;
+}
+
+h1{
+  text-align:center;
+  font-size:18px;
+  margin-bottom:20px;
+}
+
+.topControls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:15px;
+}
+
+input,select{
+  background:#444;
+  border:3px solid #000;
+  color:white;
+  padding:8px;
+  font-family:'Press Start 2P', monospace;
+  font-size:10px;
+}
+
+button{
+  background:var(--accent);
+  border:3px solid #000;
+  color:#111;
+  padding:8px 12px;
+  cursor:pointer;
+  font-family:Arial, sans-serif;
+  font-size:14px;
+  text-shadow:1px 1px 0px #fff;
+}
+
+button:hover{
+  background:var(--accent2);
+}
+
+.actions button{
+  margin-left:6px;
+  padding:6px 8px;
+  font-size:14px;
+  font-weight:bold;
+}
+
+.delete{
+  background:#ff5c5c;
+  color:#111;
+}
+
+.delete:hover{
+  background:#ff7b7b;
+}
+
+.pin{
+  background:#ffd54a;
+  color:#111;
+}
+
+.progressWrap{
+  margin:15px 0;
+}
+
+.progressBar{
+  height:18px;
+  background:#000;
+  border:3px solid #000;
+}
+
+.progress{
+  height:100%;
+  background:var(--accent);
+  width:0%;
+}
+
+.categoryStats{
+  font-size:8px;
+  margin-top:6px;
+  line-height:1.6em;
+}
+
+ul{
+  list-style:none;
+  padding:0;
+  margin:0;
+}
+
+/* Farm card layout */
+.farm{
+  display:grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items:center;
+  gap:14px;
+  background:var(--panel2);
+  margin-bottom:12px;
+  padding:10px;
+  border:3px solid #000;
+  cursor:grab;
+}
+
+.farm img{
+  width:80px;
+  height:80px;
+  object-fit:cover;
+  border:3px solid #000;
+  background:#d9d9d9;
+  padding:4px;
+  border-radius:4px;
+}
+
+.farmName{
+  font-size:10px;
+  margin-bottom:6px;
+  word-break:break-word;
+}
+
+.meta{
+  font-size:8px;
+  margin-top:6px;
+}
+
+.farm.built{
+  background:#2fa33a;
+}
+
+.actions{
+  display:flex;
+  gap:6px;
+  justify-content:flex-end;
+  min-width:140px;
+}
+
+.footerControls{
+  margin-top:20px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+@media(max-width:700px){
+  .farm{
+    grid-template-columns: 1fr;
+  }
+  .farm img{
+    width:100%;
+    height:140px;
+  }
+  .actions{
+    justify-content:flex-start;
+    flex-wrap:wrap;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Minecraft Ultimate Farm Tracker</h1>
+
+<div class="topControls">
+  <input id="name" placeholder="Farm name">
+  <select id="category">
+    <option>Mob</option>
+    <option>Crop</option>
+    <option>Villager</option>
+    <option>Utility</option>
+    <option>Other</option>
+  </select>
+  <input id="imgUrl" placeholder="Image URL">
+  <input type="file" id="imgFile">
+  <button onclick="addFarm()">Add</button>
+  <input id="search" class="search" placeholder="Search..." oninput="render()">
+</div>
+
+<div class="progressWrap">
+  <div class="progressBar"><div class="progress" id="progress"></div></div>
+  <div class="categoryStats" id="stats"></div>
+</div>
+
+<ul id="list"></ul>
+
+<div class="footerControls">
+  <button onclick="exportData()">Export</button>
+  <button onclick="importData()">Import</button>
+  <button onclick="resetAll()" class="delete">Reset</button>
+</div>
+
+</div>
+
+<script>
+let farms=JSON.parse(localStorage.getItem("mcFarms"))||[];
+
+function save(){localStorage.setItem("mcFarms",JSON.stringify(farms));}
+
+function addFarm(){
+  let name=document.getElementById("name").value;
+  let cat=document.getElementById("category").value;
+  let url=document.getElementById("imgUrl").value;
+  let file=document.getElementById("imgFile").files[0];
+  if(!name)return;
+  if(file){
+    let r=new FileReader();
+    r.onload=e=>{
+      farms.push({name,category:cat,image:e.target.result,built:false,pin:false});
+      save();render();
+    };
+    r.readAsDataURL(file);
+  } else {
+    farms.push({
+      name,
+      category:cat,
+      image:url||"https://static.wikia.nocookie.net/minecraft_gamepedia/images/3/3e/Grass_Block.png",
+      built:false,
+      pin:false
+    });
+    save();render();
+  }
+  document.getElementById("name").value="";
+  document.getElementById("imgUrl").value="";
+  document.getElementById("imgFile").value="";
+}
+
+function toggleBuilt(i){farms[i].built=!farms[i].built;save();render();}
+function togglePin(i){farms[i].pin=!farms[i].pin;save();render();}
+function deleteFarm(i){if(confirm("Delete farm?")){farms.splice(i,1);save();render();}}
+function editFarm(i){
+  let newName=prompt("Edit name",farms[i].name);
+  if(newName)farms[i].name=newName;
+  save();render();
+}
+
+function render(){
+  let list=document.getElementById("list");
+  list.innerHTML="";
+  let search=document.getElementById("search").value.toLowerCase();
+  farms.sort((a,b)=>{
+    if(a.pin!==b.pin) return b.pin-a.pin;
+    if(a.built!==b.built) return a.built-b.built;
+    return 0;
+  });
+  let built=0;
+  farms.forEach((f,i)=>{
+    if(!f.name.toLowerCase().includes(search))return;
+    if(f.built)built++;
+    let li=document.createElement("li");
+    li.className="farm"+(f.built?" built":"");
+    li.draggable=true;
+    li.innerHTML=`
+      <img src="${f.image}">
+      <div>
+        <div class="farmName">${f.name}</div>
+        <div class="meta">${f.category}</div>
+      </div>
+      <div class="actions">
+        <button onclick="toggleBuilt(${i})">✔</button>
+        <button onclick="togglePin(${i})" class="pin">★</button>
+        <button onclick="editFarm(${i})">✎</button>
+        <button onclick="deleteFarm(${i})" class="delete">X</button>
+      </div>
+    `;
+    list.appendChild(li);
+  });
+  updateProgress();
+}
+
+function updateProgress(){
+  let built=farms.filter(f=>f.built).length;
+  let total=farms.length;
+  let percent=total?built/total*100:0;
+  document.getElementById("progress").style.width=percent+"%";
+  let cats={};
+  farms.forEach(f=>{
+    if(!cats[f.category])cats[f.category]={t:0,b:0};
+    cats[f.category].t++;
+    if(f.built)cats[f.category].b++;
+  });
+  let text="";
+  for(let c in cats) text+=`${c}: ${cats[c].b}/${cats[c].t}<br>`;
+  document.getElementById("stats").innerHTML=text;
+}
+
+function exportData(){navigator.clipboard.writeText(JSON.stringify(farms)); alert("Copied farm data to clipboard.");}
+function importData(){let data=prompt("Paste exported data:");if(!data)return;try{farms=JSON.parse(data);save();render();}catch{alert("Invalid data");}}
+function resetAll(){if(confirm("Delete ALL farms?")){farms=[];save();render();}}
+
+render();
+</script>
+
+</body>
+</html>
